@@ -1,0 +1,12 @@
+{
+  "name": "claude-evolve",
+  "version": "0.1.0",
+  "description": "Evolutionary code discovery using Claude Code models (ShinkaEvolve algorithm)",
+  "type": "module",
+  "main": "bridge/mcp-wrapper.mjs",
+  "scripts": {
+    "postinstall": "python3 -m pip install -e core/ --quiet 2>/dev/null || echo 'Warning: Python deps not installed. Run: pip install -e core/'"
+  },
+  "keywords": ["claude-code", "plugin", "evolution", "mcp", "shinka"],
+  "license": "MIT"
+}

@@ -1,0 +1,71 @@
+{
+  "task_description": "You are an expert algorithm designer. Improve the circle packing algorithm to maximize the sum of radii of 26 non-overlapping circles inside a unit square. The circles must not overlap each other and must remain entirely within the [0,1]x[0,1] square. The EVOLVE-BLOCK-START/END markers delimit the mutable region.",
+  "language": "python",
+  "init_program_path": "examples/circle_packing/initial.py",
+  "eval_program_path": "examples/circle_packing/evaluate.py",
+  "num_generations": 50,
+  "ensemble": {
+    "arms": [
+      "opus/max",
+      "opus/high",
+      "sonnet/max",
+      "sonnet/high",
+      "sonnet/medium",
+      "haiku/high",
+      "haiku/medium",
+      "haiku/low"
+    ],
+    "selection": "ucb1",
+    "exploration_coef": 1.0,
+    "epsilon": 0.2,
+    "shift_by_baseline": true,
+    "shift_by_parent": true,
+    "adaptive_scale": true,
+    "asymmetric_scaling": true
+  },
+  "patches": {
+    "types": ["diff", "full", "cross", "fix"],
+    "probs": [0.5, 0.25, 0.1, 0.15],
+    "max_resamples": 3,
+    "max_attempts": 1
+  },
+  "islands": {
+    "num_islands": 2,
+    "migration_interval": 10,
+    "migration_rate": 0.1,
+    "archive_size": 40,
+    "archive_selection_strategy": "fitness",
+    "parent_selection_strategy": "weighted",
+    "enable_dynamic_islands": false,
+    "stagnation_threshold": 100,
+    "elite_selection_ratio": 0.3
+  },
+  "meta": {
+    "rec_interval": 10,
+    "max_recommendations": 5,
+    "sample_single": true
+  },
+  "novelty": {
+    "similarity_threshold": 0.95,
+    "max_attempts": 3
+  },
+  "prompt_evo": {
+    "enabled": false,
+    "patch_types": ["diff", "full"],
+    "patch_type_probs": [0.7, 0.3],
+    "evolution_interval": null,
+    "archive_size": 10,
+    "ucb_exploration_constant": 1.0,
+    "epsilon": 0.1,
+    "top_k_programs": 3
+  },
+  "logging": {
+    "format": "jsonl",
+    "path": "state/evolve.log",
+    "level": "INFO"
+  },
+  "eval_timeout": 120,
+  "use_text_feedback": false,
+  "inspiration_sort_order": "ascending",
+  "results_dir": "state/"
+}
