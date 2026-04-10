@@ -1,0 +1,20 @@
+{
+  "name": "claude-evolve",
+  "version": "0.1.0",
+  "description": "Evolutionary code discovery using Claude Code models",
+  "author": {
+    "name": "Samuel Xu"
+  },
+  "repository": "https://github.com/samuelzxu/claude-evolve",
+  "homepage": "https://github.com/samuelzxu/claude-evolve",
+  "license": "MIT",
+  "keywords": [
+    "claude-code",
+    "plugin",
+    "evolution",
+    "optimization",
+    "shinka"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json"
+}

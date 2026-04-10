@@ -1,0 +1,31 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "evolve",
+  "description": "Evolutionary code discovery using Claude Code models (ShinkaEvolve algorithm)",
+  "owner": {
+    "name": "Samuel Xu",
+    "email": "samuelzxu@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "claude-evolve",
+      "description": "Evolutionary code optimization using Claude Code models. Reimplements the ShinkaEvolve framework with UCB1 bandit ensemble, island model, novelty rejection, and meta-scratchpads -- all without external API keys.",
+      "version": "0.1.0",
+      "author": {
+        "name": "Samuel Xu",
+        "email": "samuelzxu@gmail.com"
+      },
+      "source": "./",
+      "category": "productivity",
+      "homepage": "https://github.com/samuelzxu/claude-evolve",
+      "tags": [
+        "evolution",
+        "optimization",
+        "shinka",
+        "genetic-algorithm",
+        "code-discovery"
+      ]
+    }
+  ],
+  "version": "0.1.0"
+}

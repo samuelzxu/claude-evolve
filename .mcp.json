@@ -1,11 +1,8 @@
 {
   "mcpServers": {
-    "claude-evolve": {
-      "type": "stdio",
-      "command": "python3",
-      "args": ["-m", "claude_evolve.server"],
-      "cwd": "core",
-      "env": {}
+    "e": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/bridge/mcp-wrapper.mjs"]
     }
   }
 }
