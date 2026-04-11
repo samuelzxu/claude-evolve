@@ -71,12 +71,29 @@ You do **not** need:
 
 ### Option 1: Claude Code plugin marketplace (recommended)
 
+Run each command below **in its own Claude Code message** — do not paste them as a single block, since Claude Code interprets only the first slash command on a line.
+
+**1. Add the marketplace:**
+
 ```
 /plugin marketplace add https://github.com/samuelzxu/claude-evolve
+```
+
+**2. Install the plugin:**
+
+```
 /plugin install claude-evolve@evolve
 ```
 
-Then run the setup skill to install Python dependencies and verify everything works:
+**3. Reload plugins so the new skills and MCP server register:**
+
+```
+/reload-plugins
+```
+
+(Alternatively, restart Claude Code. Either way is required after any plugin install before its skills become callable in the current session.)
+
+**4. Run the setup skill to install Python dependencies and verify everything works:**
 
 ```
 /evolve-install
