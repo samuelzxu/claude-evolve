@@ -295,7 +295,7 @@ class EvolutionRunner:
                 arm=arm,
                 prompt=user_msg,
                 system_prompt=sys_msg_with_persona,
-                timeout=self.config.eval_timeout,
+                timeout=self.config.llm_timeout,
                 max_retries=3,
             )
             llm_response = result.content
@@ -599,7 +599,7 @@ class EvolutionRunner:
                 arm=arm,
                 prompt=fix_user_msg,
                 system_prompt=fix_sys_msg,
-                timeout=self.config.eval_timeout,
+                timeout=self.config.llm_timeout,
                 max_retries=1,
             )
             fix_response = result.content
@@ -806,7 +806,7 @@ class EvolutionRunner:
                     arm=arm,
                     prompt=user_msg,
                     system_prompt=system_msg,
-                    timeout=self.config.eval_timeout,
+                    timeout=self.config.llm_timeout,
                     max_retries=2,
                 )
                 return result.content

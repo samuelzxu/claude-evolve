@@ -157,6 +157,7 @@ class EvolveConfig:
 
     # Evaluation
     eval_timeout: int = 120
+    llm_timeout: int = 600  # LLM subprocess timeout (larger for sonnet/opus with long prompts)
     use_text_feedback: bool = False
     inspiration_sort_order: str = "ascending"
 

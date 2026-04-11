@@ -1,8 +1,9 @@
 {
   "mcpServers": {
     "e": {
-      "command": "node",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/bridge/mcp-wrapper.mjs"]
+      "command": "python3",
+      "args": ["-m", "claude_evolve.server"],
+      "cwd": "${CLAUDE_PLUGIN_ROOT:-.}/core"
     }
   }
 }

@@ -1,6 +1,6 @@
 """Claude CLI subprocess bridge.
 
-Calls `claude --bare --model X --effort Y -p "prompt" ...` and parses the
+Calls `claude --model X --effort Y -p "prompt" ...` and parses the
 JSON response.  Supports async operation, configurable timeout, and
 exponential-backoff retries.
 """
@@ -10,6 +10,8 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
+import tempfile
 from dataclasses import dataclass
 from typing import Optional
 
@@ -18,6 +20,21 @@ logger = logging.getLogger(__name__)
 DEFAULT_TIMEOUT = 120
 DEFAULT_RETRIES = 3
 _BACKOFF_BASE = 2.0  # seconds: 2, 4, 8
+
+# Empty MCP config -- passed via --mcp-config to skip plugin loading
+# per call (combined with --strict-mcp-config). Written once to a temp file.
+_EMPTY_MCP_CONFIG_PATH: Optional[str] = None
+
+
+def _get_empty_mcp_config() -> str:
+    """Return path to an empty MCP config file, creating it once."""
+    global _EMPTY_MCP_CONFIG_PATH
+    if _EMPTY_MCP_CONFIG_PATH is None or not os.path.exists(_EMPTY_MCP_CONFIG_PATH):
+        fd, path = tempfile.mkstemp(suffix=".json", prefix="claude-evolve-empty-mcp-")
+        with os.fdopen(fd, "w") as f:
+            f.write('{"mcpServers": {}}')
+        _EMPTY_MCP_CONFIG_PATH = path
+    return _EMPTY_MCP_CONFIG_PATH
 
 
 class LLMCallFailed(Exception):
@@ -56,17 +73,18 @@ def _build_claude_cmd(
     """Build the claude CLI argument list."""
     # Map short model names to full Claude model IDs.
     model_map = {
-        "opus": "claude-opus-4-5",
-        "sonnet": "claude-sonnet-4-5",
-        "haiku": "claude-haiku-4-5",
+        "opus": "claude-opus-4-6",
+        "sonnet": "claude-sonnet-4-6",
+        "haiku": "claude-haiku-4-5-20251001",
     }
     full_model = model_map.get(model, model)
 
     cmd = [
         "claude",
-        "--bare",
         "--model", full_model,
         "--effort", effort,
+        "--strict-mcp-config",
+        "--mcp-config", _get_empty_mcp_config(),
         "-p", prompt,
         "--output-format", "json",
     ]
@@ -118,10 +136,17 @@ async def query_claude_async(
             await asyncio.sleep(delay)
 
         try:
+            # Give Claude enough output headroom for extended thinking tasks.
+            # Without this, --effort high/max can exhaust the default 32k
+            # output limit and return an API error instead of the response.
+            env = dict(os.environ)
+            env.setdefault("CLAUDE_CODE_MAX_OUTPUT_TOKENS", "64000")
+
             proc = await asyncio.create_subprocess_exec(
                 *cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
+                env=env,
             )
             try:
                 stdout, stderr = await asyncio.wait_for(
@@ -146,6 +171,23 @@ async def query_claude_async(
                 continue
 
             raw = stdout.decode(errors="replace").strip()
+
+            # The claude CLI may return exit 0 with an API error inside the
+            # JSON payload (e.g. "Response exceeded 32000 output tokens").
+            # Detect that and retry rather than passing the error as content.
+            try:
+                parsed = json.loads(raw)
+                if isinstance(parsed, dict) and parsed.get("is_error"):
+                    err_text = parsed.get("result", "") or parsed.get("error", "")
+                    last_exc = RuntimeError(f"claude API error: {err_text[:200]}")
+                    logger.warning(
+                        "claude API error (arm=%s attempt=%d): %s",
+                        arm, attempt, str(err_text)[:200],
+                    )
+                    continue
+            except json.JSONDecodeError:
+                pass
+
             content = _extract_content(raw)
             return QueryResult(content=content, model=model, effort=effort)
 

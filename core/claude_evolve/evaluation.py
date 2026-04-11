@@ -78,7 +78,7 @@ async def evaluate_program(
     except OSError as exc:
         return _error_result(f"Failed to write candidate file: {exc}")
 
-    metrics_path = results_path / _EVAL_RESULT_FILENAME
+    metrics_path = tmp_path.parent / _EVAL_RESULT_FILENAME
 
     # Clean up any stale metrics.json from a previous run
     if metrics_path.exists():
@@ -87,11 +87,15 @@ async def evaluate_program(
         except OSError:
             pass
 
+    import sys
+
+    python = sys.executable or "python3"
+
     cmd = [
-        "python",
+        python,
         str(Path(eval_program_path).resolve()),
         "--program_path",
-        str(tmp_path),
+        str(tmp_path.resolve()),
     ]
 
     try:
@@ -99,7 +103,6 @@ async def evaluate_program(
             *cmd,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
-            cwd=str(results_path),
         )
         try:
             stdout_bytes, stderr_bytes = await asyncio.wait_for(
