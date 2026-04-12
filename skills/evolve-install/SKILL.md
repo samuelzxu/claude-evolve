@@ -217,9 +217,47 @@ If this succeeds, the full stack works.
 
 If it fails with an auth error, tell the user to run `claude` once interactively to authenticate.
 
+## Phase 6: HUD Setup (Status Line)
+
+Set up the claude-evolve HUD that displays evolution progress in the Claude Code status bar. This appends a second line below any existing HUD (e.g. OMC's).
+
+**Steps:**
+
+1. Read the current `statusLine.command` from `~/.claude/settings.json` (or `$CLAUDE_CONFIG_DIR/settings.json`).
+
+2. If a statusLine already exists (e.g. OMC's HUD), save it to `~/.claude-evolve/original-hud.json` so the combiner can chain it:
+   ```json
+   {"command": "<the existing statusLine.command value>"}
+   ```
+
+3. If no statusLine exists yet, write `~/.claude-evolve/original-hud.json` with `{"command": null}`.
+
+4. Set the statusLine command to the claude-evolve combiner:
+   ```json
+   {
+     "statusLine": {
+       "type": "command",
+       "command": "node ${CLAUDE_PLUGIN_ROOT}/bridge/hud-combiner.mjs"
+     }
+   }
+   ```
+
+   **IMPORTANT:** Use the `statusline-setup` agent or directly patch `~/.claude/settings.json` to update the `statusLine` field. Do NOT overwrite other settings.json fields.
+
+5. If the current statusLine already points to `hud-combiner.mjs`, skip (already configured).
+
+**What the HUD shows during an active evolution run:**
+```
+evolve │ ⟳ gen 15 │ best 2.4103 │ 30 calls │ 12 progs
+```
+
+Status icons: `⟳` (yellow, running) | `✓` (green, complete) | `✗` (red, crashed/dead)
+
+When no evolution run is active, the evolve line is hidden — only the original HUD shows.
+
 ## Save State
 
-After Phase 4 (and optionally 5) succeeds, write state to `state/install-state.json`:
+After all phases succeed, write state to `state/install-state.json`:
 
 ```json
 {
@@ -244,6 +282,7 @@ Tell the user:
 > - Venv: <path or "system">
 > - MCP tools: 5 (evolve_start, evolve_status, evolve_stop, evolve_visualize, evaluator_create)
 > - Claude CLI: <version>
+> - HUD: <configured / already configured / skipped>
 >
 > **Next step:** Run `/evolve-interview` to define your first optimization task interactively, or `/evolve` if you already have `initial.py` and `evaluate.py`.
 

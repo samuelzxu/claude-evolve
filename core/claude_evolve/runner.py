@@ -687,7 +687,23 @@ class EvolutionRunner:
 
         tmp_path = self._state_path.with_suffix(".tmp")
         try:
-            tmp_path.write_text(json.dumps(state, indent=2), encoding="utf-8")
+            # allow_nan=False would raise on Infinity/-Infinity/NaN from the
+            # bandit state. Instead, use a replacer that converts them to null
+            # so the JSON is valid for Node.js consumers (like the HUD).
+            import math
+
+            def _sanitize(obj):
+                if isinstance(obj, float) and (math.isinf(obj) or math.isnan(obj)):
+                    return None
+                if isinstance(obj, dict):
+                    return {k: _sanitize(v) for k, v in obj.items()}
+                if isinstance(obj, (list, tuple)):
+                    return [_sanitize(v) for v in obj]
+                return obj
+
+            tmp_path.write_text(
+                json.dumps(_sanitize(state), indent=2), encoding="utf-8"
+            )
             tmp_path.replace(self._state_path)
         except OSError as exc:
             logger.warning("Could not save run state: %s", exc)
