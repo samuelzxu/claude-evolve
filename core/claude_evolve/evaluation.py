@@ -26,6 +26,7 @@ async def evaluate_program(
     results_dir: str,
     timeout: int = 120,
     language: str = "python",
+    eval_python: Optional[str] = None,
 ) -> dict:
     """Evaluate a candidate program by running the user-supplied evaluator.
 
@@ -87,9 +88,7 @@ async def evaluate_program(
         except OSError:
             pass
 
-    import sys
-
-    python = sys.executable or "python3"
+    python = _resolve_eval_python(eval_program_path, eval_python)
 
     cmd = [
         python,
@@ -174,6 +173,47 @@ async def evaluate_program(
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+def _resolve_eval_python(eval_program_path: str, eval_python: Optional[str] = None) -> str:
+    """Resolve the Python interpreter for running the evaluator.
+
+    Priority:
+      1. eval_python config field (explicit override)
+      2. CLAUDE_EVOLVE_EVAL_PYTHON env var
+      3. Shebang in the evaluator script (e.g. #!/usr/bin/env python3)
+      4. "python3" on PATH (NOT sys.executable, which is the MCP venv Python
+         and likely lacks the user's domain deps like torch, numpy, etc.)
+    """
+    import os
+    import shutil
+
+    # 1. Explicit config
+    if eval_python:
+        return eval_python
+
+    # 2. Env var
+    env_python = os.environ.get("CLAUDE_EVOLVE_EVAL_PYTHON")
+    if env_python:
+        return env_python
+
+    # 3. Shebang detection
+    try:
+        with open(eval_program_path, "r") as f:
+            first_line = f.readline().strip()
+        if first_line.startswith("#!"):
+            shebang = first_line[2:].strip()
+            # Handle "#!/usr/bin/env python3" -> "python3"
+            if shebang.startswith("/usr/bin/env "):
+                shebang = shebang[len("/usr/bin/env "):].strip()
+            # Verify it exists
+            if shutil.which(shebang.split()[0]):
+                return shebang
+    except (OSError, UnicodeDecodeError):
+        pass
+
+    # 4. python3 on PATH (NOT sys.executable)
+    return "python3"
 
 
 def _language_extension(language: str) -> str:

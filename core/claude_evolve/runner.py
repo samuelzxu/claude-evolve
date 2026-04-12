@@ -147,10 +147,30 @@ class EvolutionRunner:
         logger.info("Evaluating initial program...")
         eval_result = await self._evaluate(init_code)
 
-        if eval_result.get("error") and not eval_result.get("combined_score"):
-            logger.warning(
-                "Initial program evaluation failed: %s", eval_result["error"]
+        if not eval_result.get("correct"):
+            error_msg = eval_result.get("error", "unknown error")
+            metrics = eval_result.get("metrics", {})
+            stderr_log = metrics.get("stderr_log", "")
+            logger.error(
+                "Initial program evaluation FAILED (correct=False). "
+                "Error: %s | stderr: %s",
+                error_msg,
+                stderr_log[:500],
             )
+            # Retry once in case of transient failure
+            logger.info("Retrying initial evaluation once...")
+            eval_result = await self._evaluate(init_code)
+
+            if not eval_result.get("correct"):
+                error_msg = eval_result.get("error", "unknown error")
+                raise RuntimeError(
+                    f"Initial program failed evaluation twice. "
+                    f"The evolution cannot proceed without a correct seed program.\n"
+                    f"Error: {error_msg}\n"
+                    f"Fix your initial.py or evaluate.py and try again.\n"
+                    f"Run: python3 {self.config.eval_program_path} "
+                    f"--program_path {self.config.init_program_path}"
+                )
 
         # Store initial program
         init_program = Program(
@@ -627,6 +647,7 @@ class EvolutionRunner:
             results_dir=str(self._results_dir),
             timeout=self.config.eval_timeout,
             language=self.config.language,
+            eval_python=self.config.eval_python,
         )
 
     # ------------------------------------------------------------------

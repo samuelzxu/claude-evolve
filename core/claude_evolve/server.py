@@ -18,12 +18,46 @@ from mcp.server.fastmcp import FastMCP
 mcp = FastMCP("claude-evolve")
 
 
+_ACTIVE_RUN_PATH = Path.home() / ".claude-evolve" / "active_run.json"
+
+
+def _save_active_run(pid: int, state_dir: str) -> None:
+    """Persist the active run location so evolve_status can find it from any cwd."""
+    _ACTIVE_RUN_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(_ACTIVE_RUN_PATH, "w") as f:
+        json.dump({"pid": pid, "state_dir": state_dir}, f)
+
+
+def _load_active_run() -> dict | None:
+    """Load the persisted active run location."""
+    if _ACTIVE_RUN_PATH.exists():
+        try:
+            with open(_ACTIVE_RUN_PATH) as f:
+                return json.load(f)
+        except (json.JSONDecodeError, OSError):
+            pass
+    return None
+
+
 def _find_state_dir() -> Path:
-    """Find the state directory for the current evolution run."""
+    """Find the state directory for the current evolution run.
+
+    Priority:
+      1. Persisted active_run.json (written by evolve_start)
+      2. state/ in cwd
+      3. .claude-evolve/state/ in cwd
+    """
+    # 1. Persisted location from evolve_start
+    active = _load_active_run()
+    if active and Path(active["state_dir"]).exists():
+        return Path(active["state_dir"])
+
+    # 2. Relative to cwd
     cwd = Path.cwd()
     state_dir = cwd / "state"
     if state_dir.exists():
         return state_dir
+
     return cwd / ".claude-evolve" / "state"
 
 
@@ -70,16 +104,45 @@ def evolve_start(
             cmd.extend(["--num-generations", str(num_generations)])
 
     try:
+        # Write stderr to a log file so crash diagnostics aren't lost
+        state_dir = Path.cwd() / "state"
+        state_dir.mkdir(parents=True, exist_ok=True)
+        stderr_log = state_dir / "launch_stderr.log"
+
+        stderr_fh = open(stderr_log, "w")
         proc = subprocess.Popen(
             cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stdout=subprocess.DEVNULL,
+            stderr=stderr_fh,
             start_new_session=True,
         )
+
+        # Brief pause to catch immediate crashes (bad config, missing deps)
+        import time
+        time.sleep(1.0)
+        exit_code = proc.poll()
+
+        if exit_code is not None:
+            stderr_fh.close()
+            err_text = stderr_log.read_text(errors="replace").strip()
+            return json.dumps(
+                {
+                    "status": "crashed",
+                    "pid": proc.pid,
+                    "exit_code": exit_code,
+                    "error": err_text[:2000] or "Process exited immediately with no output",
+                    "stderr_log": str(stderr_log),
+                }
+            )
+
+        # Persist the results dir so evolve_status can find it from any cwd
+        _save_active_run(proc.pid, str(state_dir))
+
         return json.dumps(
             {
                 "status": "started",
                 "pid": proc.pid,
+                "state_dir": str(state_dir),
                 "message": f"Evolution run started (PID {proc.pid}). Use evolve_status to monitor progress.",
             }
         )
