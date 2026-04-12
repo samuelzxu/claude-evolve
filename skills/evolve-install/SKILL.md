@@ -127,22 +127,78 @@ claude --help 2>&1 | head -5
 
 ## Phase 4: MCP Verification
 
-Verify the MCP server starts and exposes all expected tools:
+Verify the MCP server starts and exposes all expected tools.
+
+**Important:** Do NOT use the `timeout` or `gtimeout` shell commands here. They are Linux-only and GNU-coreutils-on-macOS respectively, and neither is guaranteed to exist on a fresh install. Use Python's built-in subprocess timeout instead, which works everywhere Python works (and Python is guaranteed present by Phase 2).
+
+Run the probe by inlining a short Python script that drives the MCP handshake. Use `Popen` + a deadline reader — do **not** use `subprocess.run(input=...)`, because closing stdin triggers FastMCP shutdown before the `tools/list` response is flushed.
 
 ```bash
-printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}\n{"jsonrpc":"2.0","method":"notifications/initialized"}\n{"jsonrpc":"2.0","id":3,"method":"tools/list","params":{}}' | timeout 10 "$PYTHON" -m claude_evolve.server 2>&1 | tail -1
+"$PYTHON" - <<'PYEOF'
+import json, subprocess, sys, time
+
+init = {"jsonrpc":"2.0","id":1,"method":"initialize",
+        "params":{"protocolVersion":"2024-11-05","capabilities":{},
+                  "clientInfo":{"name":"evolve-install","version":"1.0"}}}
+notif = {"jsonrpc":"2.0","method":"notifications/initialized"}
+list_req = {"jsonrpc":"2.0","id":3,"method":"tools/list","params":{}}
+
+payload = "\n".join(json.dumps(m) for m in [init, notif, list_req]) + "\n"
+
+proc = subprocess.Popen(
+    [sys.executable, "-m", "claude_evolve.server"],
+    stdin=subprocess.PIPE,
+    stdout=subprocess.PIPE,
+    stderr=subprocess.PIPE,
+    text=True,
+    bufsize=1,
+)
+
+proc.stdin.write(payload)
+proc.stdin.flush()
+
+deadline = time.time() + 15
+tools_line = None
+try:
+    while time.time() < deadline:
+        line = proc.stdout.readline()
+        if not line:
+            break
+        if '"id":3' in line and '"tools"' in line:
+            tools_line = line
+            break
+finally:
+    try:
+        proc.stdin.close()
+    except Exception:
+        pass
+    proc.terminate()
+    try:
+        proc.wait(timeout=3)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+
+if tools_line is None:
+    err = proc.stderr.read()[:500] if proc.stderr else ""
+    print(f"MCP_PROBE_FAIL: no tools/list response within deadline. stderr={err}")
+    sys.exit(1)
+
+data = json.loads(tools_line)
+tools = [t["name"] for t in data["result"]["tools"]]
+expected = {"evolve_start", "evolve_status", "evolve_stop", "evolve_visualize", "evaluator_create"}
+missing = expected - set(tools)
+
+if missing:
+    print(f"MCP_PROBE_FAIL: missing tools {sorted(missing)}. Got: {tools}")
+    sys.exit(1)
+
+print(f"MCP_PROBE_OK: {len(tools)} tools exposed: {sorted(tools)}")
+PYEOF
 ```
 
-Parse the `tools/list` response. It must include all five tools:
-- `evolve_start`
-- `evolve_status`
-- `evolve_stop`
-- `evolve_visualize`
-- `evaluator_create`
+Parse the output — look for `MCP_PROBE_OK` on success or `MCP_PROBE_FAIL:` on failure. If it fails, report the stderr tail and stop.
 
-If any are missing, report which and stop.
-
-Also run `claude mcp list 2>&1` and confirm `claude-evolve` (or `e`) appears in the output with `✓ Connected`. If it doesn't, the user may need to re-open Claude Code or run `claude mcp add` manually — provide the exact command.
+Also run `claude mcp list 2>&1` and confirm an entry matching `claude-evolve` (or the short name `e`) appears with `✓ Connected`. If it doesn't, the user may need to restart Claude Code or run `claude mcp add` manually — provide the exact command.
 
 ## Phase 5: Smoke Test (Optional)
 
