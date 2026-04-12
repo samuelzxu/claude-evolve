@@ -1,6 +1,7 @@
 ---
 name: evolve-interview
 description: Socratic deep interview with mathematical ambiguity gating to crystallize an evolution task (produces initial.py, evaluate.py, config.json)
+argument-hint: "<describe what you want to optimize>"
 level: 3
 ---
 
