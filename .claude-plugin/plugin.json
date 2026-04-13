@@ -1,6 +1,6 @@
 {
   "name": "claude-evolve",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Evolutionary code discovery using Claude Code models",
   "author": {
     "name": "Samuel Xu"
@@ -16,5 +16,5 @@
     "shinka"
   ],
   "skills": "./skills/",
-  "mcpServers": "./.mcp.json"
+  "mcpServers": "./.mcp.json.plugin"
 }

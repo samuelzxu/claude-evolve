@@ -8,3 +8,4 @@ state/
 *.db
 .venv/
 node_modules/
+.mcp.json
