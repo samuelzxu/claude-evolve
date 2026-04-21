@@ -16,5 +16,10 @@
     "shinka"
   ],
   "skills": "./skills/",
-  "mcpServers": "./.mcp.json.plugin"
+  "mcpServers": {
+    "e": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/bridge/mcp-wrapper.mjs"]
+    }
+  }
 }
