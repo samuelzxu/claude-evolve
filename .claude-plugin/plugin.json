@@ -1,6 +1,6 @@
 {
   "name": "claude-evolve",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "description": "Evolutionary code discovery using Claude Code models",
   "author": {
     "name": "Samuel Xu"
@@ -16,10 +16,5 @@
     "shinka"
   ],
   "skills": "./skills/",
-  "mcpServers": {
-    "e": {
-      "command": "node",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/bridge/mcp-wrapper.mjs"]
-    }
-  }
+  "mcpServers": "./.mcp.json"
 }
