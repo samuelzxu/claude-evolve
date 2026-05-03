@@ -56,7 +56,7 @@ After N generations, the best program in the archive is your optimized solution.
 - **Claude Code CLI** (the `claude` command) with an authenticated account
 - **Python 3.10 or newer** on PATH
 - **`pip`** to install the claude-evolve Python package
-- Unix-like environment (Linux, macOS, WSL) — Windows native is not tested
+- Unix-like environment (Linux, macOS, WSL) or Windows environment. Windows environment is quite different.
 - ~200 MB disk space for dependencies (numpy, scipy, aiosqlite, mcp)
 
 You do **not** need:
@@ -117,6 +117,18 @@ source core/.venv/bin/activate
 pip install -e core/
 claude mcp add -s user claude-evolve -- python3 -m claude_evolve.server
 ```
+
+'''or Windows powershell
+git clone https://github.com/samuelzxu/claude-evolve
+cd claude-evolve
+py -3 -m venv core\.venv
+core\.venv\Scripts\python.exe -m pip install --upgrade pip setuptools wheel
+core\.venv\Scripts\python.exe -m pip install -e .\core
+
+Set windows-safe env vars in the same Powershell window:
+$env:CLAUDE_EVOLVE_EVAL_PYTHON = (Resolve-Path core\.venv\Scripts\python.exe).Path
+$env:CLAUDE_CODE_MAX_OUTPUT_TOKENS = "64000"
+'''
 
 Then open any Claude Code session and confirm the MCP server is connected:
 
@@ -899,6 +911,23 @@ cp -r core/examples/circle_packing ./my-circle-run
 cd my-circle-run
 /evolve config.json
 ```
+
+'''windows
+In windows, I'd recommend to use WSL. It is more straightforward and doesn't cause any issue associated. Otherwise, run this command in powershell:
+cd core
+.\.venv\Scripts\python.exe -m claude_evolve.cli run --config .\examples\circle_packing\config.json
+
+Monitor from a second PowerShell window:
+cd D:\Projects\claude-evolve\core
+Get-Content .\state\evolve.log -Wait -Tail 20
+
+Check state:
+Get-Content .\state\run_state.json
+
+Notice that we are not actually using the skills such as /evolve, /evolve-status. You can, but I'd recommend this option as it is more straightforward.
+
+If you are using this option, the windows have a character limit in CLI that will throw most of the generations to an error. Therefore, the score will be marginally lower. The score I got is 2.62.
+'''
 
 The discovered solution (in the database after the run completes) is a hybrid approach:
 
