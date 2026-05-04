@@ -84,12 +84,45 @@ class MetaConfig:
     sample_single: bool = True
 
 
+_AST_DEFAULT_THRESHOLD = 0.95
+_EMBEDDING_DEFAULT_THRESHOLD = 0.85
+
+
 @dataclass
 class NoveltyConfig:
-    """Configuration for novelty rejection sampling."""
+    """Configuration for novelty rejection sampling.
 
-    similarity_threshold: float = 0.95
+    similarity_threshold scales differ between methods. AST + MinHash gives
+    high overlap even across different algorithms (default 0.95). Neural code
+    embeddings have a wider dynamic range -- on the default CodeT5+ model,
+    structurally identical code with renamed identifiers scores ~0.72,
+    same-task different-algorithm scores ~0.84, and unrelated code drops
+    below 0.5 (default threshold 0.85).
+
+    If similarity_threshold is left at the AST default (0.95) and method is
+    "embedding", we auto-substitute the embedding default to avoid silently
+    accepting near-duplicates.
+    """
+
+    similarity_threshold: float = _AST_DEFAULT_THRESHOLD
     max_attempts: int = 3
+    # Similarity backend: "ast" (zero-dep AST + MinHash) or "embedding" (neural code model)
+    method: str = "ast"
+    # HuggingFace model ID for "embedding" method. Default is permissive
+    # BSD-3 code-specific embedder. For higher CoIR accuracy (research-only),
+    # try "Salesforce/SFR-Embedding-Code-400M_R" (CC-BY-NC-4.0).
+    embedding_model: str = "Salesforce/codet5p-110m-embedding"
+    # Torch device override ("cpu", "cuda", "mps"). None = autodetect.
+    embedding_device: Optional[str] = None
+    # Max input tokens to embed (truncate longer code).
+    embedding_max_tokens: int = 8192
+
+    def __post_init__(self):
+        if (
+            self.method == "embedding"
+            and self.similarity_threshold == _AST_DEFAULT_THRESHOLD
+        ):
+            self.similarity_threshold = _EMBEDDING_DEFAULT_THRESHOLD
 
 
 @dataclass

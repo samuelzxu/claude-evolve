@@ -30,7 +30,7 @@ from .mutations.apply_fix import apply_fix_patch
 from .mutations.apply_full import apply_full_patch
 from .mutations.crossover import apply_crossover_patch
 from .mutations.sampler import PromptSampler
-from .novelty.judge import NoveltyJudge
+from .novelty import EmbeddingJudge, NoveltyJudge, make_judge
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +61,7 @@ class EvolutionRunner:
         self.bandit: Optional[EnsembleBandit] = None
         self.sampler: Optional[PromptSampler] = None
         self.meta_summarizer: Optional[MetaSummarizer] = None
-        self.novelty_judge: Optional[NoveltyJudge] = None
+        self.novelty_judge: Optional[NoveltyJudge | EmbeddingJudge] = None
         self.prompt_evolver = None  # Optional[PromptEvolver]
 
         # Runtime state
@@ -118,11 +118,8 @@ class EvolutionRunner:
         # Meta-summarizer
         self.meta_summarizer = MetaSummarizer(self.config)
 
-        # Novelty judge
-        self.novelty_judge = NoveltyJudge(
-            similarity_threshold=self.config.novelty.similarity_threshold,
-            max_attempts=self.config.novelty.max_attempts,
-        )
+        # Novelty judge (AST or embedding-based, per config)
+        self.novelty_judge = make_judge(self.config.novelty)
 
         # Optional prompt co-evolution
         if self.config.prompt_evo.enabled:

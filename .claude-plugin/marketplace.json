@@ -6,13 +6,13 @@
   },
   "metadata": {
     "description": "Evolutionary code discovery using Claude Code models (ShinkaEvolve algorithm)",
-    "version": "0.4.4"
+    "version": "0.4.5"
   },
   "plugins": [
     {
       "name": "claude-evolve",
       "description": "Evolutionary code optimization using Claude Code models. Reimplements the ShinkaEvolve framework with UCB1 bandit ensemble, island model, novelty rejection, and meta-scratchpads -- all without external API keys.",
-      "version": "0.4.4",
+      "version": "0.4.5",
       "author": {
         "name": "Samuel Xu",
         "email": "samuelzxu@gmail.com"

@@ -1,6 +1,6 @@
 {
   "name": "claude-evolve",
-  "version": "0.4.4",
+  "version": "0.4.5",
   "description": "Evolutionary code discovery using Claude Code models (ShinkaEvolve algorithm)",
   "type": "module",
   "main": "bridge/mcp-wrapper.mjs",

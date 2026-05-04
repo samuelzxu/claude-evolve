@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "claude-evolve"
-version = "0.4.4"
+version = "0.4.5"
 description = "Evolutionary code discovery using Claude Code models"
 requires-python = ">=3.10"
 dependencies = [
@@ -21,6 +21,12 @@ dev = [
 ]
 viz = [
     "matplotlib>=3.7.0",
+]
+embedding = [
+    "sentence-transformers>=2.7.0",
+    "torch>=2.0.0",
+    # transformers v5 dropped APIs that SFR's custom modeling code relies on
+    "transformers>=4.40,<5",
 ]
 
 [project.scripts]
