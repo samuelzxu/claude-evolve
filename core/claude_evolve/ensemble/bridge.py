@@ -146,6 +146,7 @@ async def query_claude_async(
                 *cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
+                cwd=os.path.expanduser("~"),
                 env=env,
             )
             try:

@@ -115,6 +115,7 @@ def evolve_start(
             stdout=subprocess.DEVNULL,
             stderr=stderr_fh,
             start_new_session=True,
+            cwd=str(state_dir.parent),
         )
 
         # Brief pause to catch immediate crashes (bad config, missing deps)
