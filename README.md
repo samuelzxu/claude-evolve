@@ -118,14 +118,18 @@ pip install -e core/
 claude mcp add -s user claude-evolve -- python3 -m claude_evolve.server
 ```
 
-'''or Windows powershell
+#### or Windows powershell
+
+'''bash
 git clone https://github.com/samuelzxu/claude-evolve
 cd claude-evolve
 py -3 -m venv core\.venv
 core\.venv\Scripts\python.exe -m pip install --upgrade pip setuptools wheel
 core\.venv\Scripts\python.exe -m pip install -e .\core
+'''
 
 Set windows-safe env vars in the same Powershell window:
+'''bash
 $env:CLAUDE_EVOLVE_EVAL_PYTHON = (Resolve-Path core\.venv\Scripts\python.exe).Path
 $env:CLAUDE_CODE_MAX_OUTPUT_TOKENS = "64000"
 '''
@@ -912,22 +916,29 @@ cd my-circle-run
 /evolve config.json
 ```
 
-'''windows
+#### Windows ver
 In windows, I'd recommend to use WSL. It is more straightforward and doesn't cause any issue associated. Otherwise, run this command in powershell:
+
+'''bash
 cd core
 .\.venv\Scripts\python.exe -m claude_evolve.cli run --config .\examples\circle_packing\config.json
 
 Monitor from a second PowerShell window:
-cd D:\Projects\claude-evolve\core
+
+'''bash
+cd claude-evolve\core
 Get-Content .\state\evolve.log -Wait -Tail 20
+'''
 
 Check state:
+'''
 Get-Content .\state\run_state.json
+'''
 
 Notice that we are not actually using the skills such as /evolve, /evolve-status. You can, but I'd recommend this option as it is more straightforward.
 
 If you are using this option, the windows have a character limit in CLI that will throw most of the generations to an error. Therefore, the score will be marginally lower. The score I got is 2.62.
-'''
+
 
 The discovered solution (in the database after the run completes) is a hybrid approach:
 
