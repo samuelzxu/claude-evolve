@@ -118,27 +118,22 @@ pip install -e core/
 claude mcp add -s user claude-evolve -- python3 -m claude_evolve.server
 ```
 
-#### or Windows powershell
-
-'''bash
-git clone https://github.com/samuelzxu/claude-evolve
-cd claude-evolve
-py -3 -m venv core\.venv
-core\.venv\Scripts\python.exe -m pip install --upgrade pip setuptools wheel
-core\.venv\Scripts\python.exe -m pip install -e .\core
-'''
-
-Set windows-safe env vars in the same Powershell window:
-'''bash
-$env:CLAUDE_EVOLVE_EVAL_PYTHON = (Resolve-Path core\.venv\Scripts\python.exe).Path
-$env:CLAUDE_CODE_MAX_OUTPUT_TOKENS = "64000"
-'''
 
 Then open any Claude Code session and confirm the MCP server is connected:
 
 ```
 claude mcp list
 # Should show: claude-evolve: python3 -m claude_evolve.server - ✓ Connected
+```
+
+#### or Windows powershell
+
+```powershell
+git clone https://github.com/samuelzxu/claude-evolve
+cd claude-evolve
+py -3 -m venv core\.venv
+core\.venv\Scripts\python.exe -m pip install --upgrade pip setuptools wheel
+core\.venv\Scripts\python.exe -m pip install -e .\core
 ```
 
 ---
@@ -916,28 +911,46 @@ cd my-circle-run
 /evolve config.json
 ```
 
-#### Windows ver
-In windows, I'd recommend to use WSL. It is more straightforward and doesn't cause any issue associated. Otherwise, run this command in powershell:
+#### Native Windows PowerShell
 
-'''bash
+WSL is recommended for long benchmark runs. If you run on native Windows, this path uses the direct Python CLI, not the Claude Code plugin slash commands. You do not need to run `claude mcp add`, `/evolve`, or `/evolve-status` for this path; those are only needed if you want the plugin/MCP workflow.
+
+First verify the Claude CLI works from PowerShell:
+
+```powershell
+"Reply with OK only" | claude -p --model claude-haiku-4-5-20251001 --effort low --output-format json
+```
+
+If native Windows fails with `[WinError 206] The filename or extension is too long`, apply the stdin bridge fix in [Troubleshooting](#native-windows-winerror-206-the-filename-or-extension-is-too-long), then verify the Python bridge:
+
+```powershell
+core\.venv\Scripts\python.exe -c "import asyncio; from claude_evolve.ensemble.bridge import query_claude_async; r=asyncio.run(query_claude_async('haiku/low','Reply with OK only',timeout=120,max_retries=1)); print(r.content)"
+```
+
+Run the benchmark:
+
+```powershell
 cd core
+$env:CLAUDE_EVOLVE_EVAL_PYTHON = (Resolve-Path .\.venv\Scripts\python.exe).Path
+$env:CLAUDE_CODE_MAX_OUTPUT_TOKENS = "64000"
 .\.venv\Scripts\python.exe -m claude_evolve.cli run --config .\examples\circle_packing\config.json
+```
 
 Monitor from a second PowerShell window:
 
-'''bash
+```powershell
 cd claude-evolve\core
 Get-Content .\state\evolve.log -Wait -Tail 20
-'''
+```
 
 Check state:
-'''
+```powershell
 Get-Content .\state\run_state.json
-'''
+```
 
-Notice that we are not actually using the skills such as /evolve, /evolve-status. You can, but I'd recommend this option as it is more straightforward.
+The default benchmark can still take a long time because it samples high-effort arms such as `opus/high`, `sonnet/max`, and `sonnet/high`.
 
-If you are using this option, the windows have a character limit in CLI that will throw most of the generations to an error. Therefore, the score will be marginally lower. The score I got is 2.62.
+---
 
 
 The discovered solution (in the database after the run completes) is a hybrid approach:
@@ -953,6 +966,61 @@ This is the textbook approach for packing problems — claude-evolve discovered 
 ---
 
 ## Troubleshooting
+
+### Native Windows: `[WinError 206] The filename or extension is too long`
+
+Native Windows can fail if the Claude prompt is passed as a command-line argument. The fix is to keep `-p` for non-interactive mode, but send the prompt through stdin.
+
+First verify the Claude CLI itself works:
+
+```powershell
+"Reply with OK only" | claude -p --model claude-haiku-4-5-20251001 --effort low --output-format json
+```
+
+In `core\claude_evolve\ensemble\bridge.py`, change `_build_claude_cmd` from:
+
+```python
+"-p", prompt,
+"--output-format", "json",
+```
+
+to:
+
+```python
+"-p",
+"--output-format", "json",
+```
+
+In the same file, find `asyncio.create_subprocess_exec(...)` and add stdin while keeping the existing stdout, stderr, cwd, and env arguments:
+
+```python
+stdin=asyncio.subprocess.PIPE,
+```
+
+Then change:
+
+```python
+proc.communicate()
+```
+
+to:
+
+```python
+proc.communicate(input=prompt.encode("utf-8"))
+```
+
+Verify the Python bridge after the change:
+
+```powershell
+cd core
+.\.venv\Scripts\python.exe -c "import asyncio; from claude_evolve.ensemble.bridge import query_claude_async; r=asyncio.run(query_claude_async('haiku/low','Reply with OK only',timeout=120,max_retries=1)); print(r.content)"
+```
+
+Expected output:
+
+```text
+OK
+```
 
 ### `/evolve-install` fails at Phase 2: "scipy build error"
 
