@@ -144,6 +144,15 @@ class PromptEvoConfig:
 
 
 @dataclass
+class BedrockConfig:
+    """Configuration for AWS Bedrock backend."""
+
+    enabled: bool = False
+    profile: Optional[str] = None
+    region: Optional[str] = None
+
+
+@dataclass
 class LoggingConfig:
     """Configuration for structured logging."""
 
@@ -184,6 +193,9 @@ class EvolveConfig:
 
     # Prompt co-evolution
     prompt_evo: PromptEvoConfig = field(default_factory=PromptEvoConfig)
+
+    # Bedrock
+    bedrock: BedrockConfig = field(default_factory=BedrockConfig)
 
     # Logging
     logging: LoggingConfig = field(default_factory=LoggingConfig)
@@ -231,6 +243,7 @@ class EvolveConfig:
             "meta": MetaConfig,
             "novelty": NoveltyConfig,
             "prompt_evo": PromptEvoConfig,
+            "bedrock": BedrockConfig,
             "logging": LoggingConfig,
         }
         kwargs = {}

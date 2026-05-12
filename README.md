@@ -814,6 +814,109 @@ Full `config.json` schema with all fields and defaults:
 - **Fast iteration (< 30s per generation):** `["haiku/high", "haiku/medium", "haiku/low"]`
 - **Balanced (default):** `["sonnet/medium", "sonnet/low", "haiku/high", "haiku/medium", "haiku/low"]`
 - **Deep thinking (several minutes per generation):** `["sonnet/max", "sonnet/high", "opus/max"]` + `llm_timeout: 1800`
+- **Bedrock multi-model (see below):** `["bedrock/deepseek.v3.2/medium", "bedrock/qwen.qwen3-coder-next/high", "bedrock/us.anthropic.claude-sonnet-4-6/low"]`
+
+---
+
+## Using AWS Bedrock Models
+
+claude-evolve can use any model available through AWS Bedrock's Converse API as bandit arms — Claude, DeepSeek, Qwen, Kimi, Nemotron, GLM, MiniMax, and more. This gives you model-family diversity in a single evolution run.
+
+### Prerequisites
+
+1. An AWS account with Bedrock model access enabled for the models you want to use
+2. AWS credentials configured locally (via `~/.aws/credentials` or environment variables)
+3. Install the bedrock extras:
+
+```
+pip install 'claude-evolve[bedrock]'
+```
+
+### Configuration
+
+Add a `bedrock` section to your `config.json` and prefix arm names with `bedrock/`:
+
+```json
+{
+  "bedrock": {
+    "enabled": true,
+    "profile": "your-aws-profile",
+    "region": "us-east-1"
+  },
+  "ensemble": {
+    "arms": [
+      "bedrock/deepseek.v3.2/medium",
+      "bedrock/us.anthropic.claude-sonnet-4-6/low",
+      "bedrock/moonshotai.kimi-k2.5/medium",
+      "bedrock/qwen.qwen3-coder-next/high",
+      "bedrock/nvidia.nemotron-super-3-120b/medium",
+      "bedrock/openai.gpt-oss-120b-1:0/medium",
+      "bedrock/zai.glm-5/medium"
+    ]
+  }
+}
+```
+
+### Arm format
+
+```
+bedrock/<model-id>/<effort>
+```
+
+- **model-id**: The Bedrock model ID or inference profile ID. Claude models require the inference profile form (e.g., `us.anthropic.claude-sonnet-4-6` not `anthropic.claude-sonnet-4-6`).
+- **effort**: `low`, `medium`, `high`, or `max`.
+
+### Effort mapping
+
+| Model family | low | medium | high | max |
+|---|---|---|---|---|
+| Claude (anthropic) | thinking 4K tokens | thinking 16K | thinking 32K | thinking 64K |
+| All others | temp 0.3 | temp 0.7 | temp 0.9 | temp 1.0 |
+
+### Available models (tested)
+
+```
+bedrock/deepseek.v3.2/medium
+bedrock/us.anthropic.claude-sonnet-4-6/low
+bedrock/us.anthropic.claude-opus-4-6-v1/low
+bedrock/us.anthropic.claude-opus-4-5-20251101-v1:0/low
+bedrock/moonshotai.kimi-k2.5/medium
+bedrock/moonshot.kimi-k2-thinking/medium
+bedrock/nvidia.nemotron-super-3-120b/medium
+bedrock/openai.gpt-oss-120b-1:0/medium
+bedrock/qwen.qwen3-vl-235b-a22b/medium
+bedrock/qwen.qwen3-coder-next/high
+bedrock/zai.glm-5/medium
+bedrock/minimax.minimax-m2.5/medium
+bedrock/ai21.jamba-1-5-large-v1:0/medium
+```
+
+### Hybrid ensembles
+
+You can mix Claude CLI arms and Bedrock arms in the same run:
+
+```json
+{
+  "bedrock": { "enabled": true, "profile": "myprofile", "region": "us-east-1" },
+  "ensemble": {
+    "arms": [
+      "sonnet/medium",
+      "haiku/high",
+      "bedrock/deepseek.v3.2/medium",
+      "bedrock/qwen.qwen3-coder-next/high"
+    ]
+  }
+}
+```
+
+Arms without the `bedrock/` prefix use the Claude Code CLI as before.
+
+### Troubleshooting Bedrock
+
+- **"Invocation of model ID X with on-demand throughput isn't supported"**: Use the inference profile ID (e.g., `us.anthropic.claude-sonnet-4-6` instead of `anthropic.claude-sonnet-4-6`). Run `aws bedrock list-inference-profiles` to find valid IDs.
+- **"The maximum tokens you requested exceeds the model limit"**: This is handled automatically for known models. If you hit it with a new model, file an issue.
+- **Throttling**: The backend retries with exponential backoff automatically.
+- **Credentials**: Set `profile` in the bedrock config to match your `~/.aws/credentials` profile name. Or omit it to use the default profile / environment variables.
 
 ---
 

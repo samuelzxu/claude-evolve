@@ -64,6 +64,15 @@ class EvolutionRunner:
         self.novelty_judge: Optional[NoveltyJudge | EmbeddingJudge] = None
         self.prompt_evolver = None  # Optional[PromptEvolver]
 
+        # Bedrock config (passed to bridge for bedrock/ arms)
+        from .ensemble.bedrock import BedrockConfig as _BRConfig
+        self._bedrock_config: Optional[_BRConfig] = None
+        if hasattr(config, "bedrock") and config.bedrock.enabled:
+            self._bedrock_config = _BRConfig(
+                profile=config.bedrock.profile,
+                region=config.bedrock.region,
+            )
+
         # Runtime state
         self._generation: int = 0
         self._best_score: float = 0.0
@@ -314,6 +323,7 @@ class EvolutionRunner:
                 system_prompt=sys_msg_with_persona,
                 timeout=self.config.llm_timeout,
                 max_retries=3,
+                bedrock_config=self._bedrock_config,
             )
             llm_response = result.content
         except LLMCallFailed as exc:
@@ -618,6 +628,7 @@ class EvolutionRunner:
                 system_prompt=fix_sys_msg,
                 timeout=self.config.llm_timeout,
                 max_retries=1,
+                bedrock_config=self._bedrock_config,
             )
             fix_response = result.content
         except LLMCallFailed as exc:
@@ -731,7 +742,7 @@ class EvolutionRunner:
         root = logging.getLogger()
         if not root.handlers:
             logging.basicConfig(
-                level=logging.INFO,
+                level=logging.DEBUG,
                 format="%(asctime)s %(levelname)s %(name)s: %(message)s",
                 datefmt="%Y-%m-%dT%H:%M:%S",
             )
@@ -842,6 +853,7 @@ class EvolutionRunner:
                     system_prompt=system_msg,
                     timeout=self.config.llm_timeout,
                     max_retries=2,
+                    bedrock_config=self._bedrock_config,
                 )
                 return result.content
             except LLMCallFailed as exc:
