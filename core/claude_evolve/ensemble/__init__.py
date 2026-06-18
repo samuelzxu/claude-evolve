@@ -6,11 +6,6 @@ from claude_evolve.ensemble.bandit import (
     EnsembleBandit,
     DEFAULT_ARM_NAMES,
 )
-from claude_evolve.ensemble.bedrock import (
-    BedrockCallFailed,
-    BedrockConfig,
-    query_bedrock_async,
-)
 from claude_evolve.ensemble.bridge import (
     LLMCallFailed,
     QueryResult,
@@ -29,10 +24,6 @@ __all__ = [
     "AsymmetricUCB",
     "EnsembleBandit",
     "DEFAULT_ARM_NAMES",
-    # bedrock
-    "BedrockCallFailed",
-    "BedrockConfig",
-    "query_bedrock_async",
     # bridge
     "LLMCallFailed",
     "QueryResult",

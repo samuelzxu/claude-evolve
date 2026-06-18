@@ -1,12 +1,8 @@
-"""LLM bridge — routes arms to Claude CLI or AWS Bedrock Converse API.
+"""Claude CLI subprocess bridge.
 
-Arm format:
-  - ``"sonnet/high"`` or ``"opus/max"`` — Claude Code CLI (legacy, default)
-  - ``"bedrock/<model-id>/<effort>"`` — Bedrock Converse API
-
-Calls `claude --model X --effort Y -p "prompt" ...` for CLI arms and
-the Bedrock Converse API for ``bedrock/`` arms. Both support async
-operation, configurable timeout, and exponential-backoff retries.
+Calls `claude --model X --effort Y -p "prompt" ...` and parses the
+JSON response.  Supports async operation, configurable timeout, and
+exponential-backoff retries.
 """
 
 from __future__ import annotations
@@ -18,12 +14,6 @@ import os
 import tempfile
 from dataclasses import dataclass
 from typing import Optional
-
-from claude_evolve.ensemble.bedrock import (
-    BedrockCallFailed,
-    BedrockConfig,
-    query_bedrock_async,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -60,31 +50,18 @@ class QueryResult:
     effort: str
 
 
-def _parse_arm(arm: str) -> tuple[str, str, str]:
-    """Split arm name into (provider, model, effort).
+def _parse_arm(arm: str) -> tuple[str, str]:
+    """Split 'model/effort' arm name into (model, effort).
 
-    Formats
-    -------
-    - ``"sonnet/high"`` → ``("claude", "sonnet", "high")``
-    - ``"bedrock/us.anthropic.claude-sonnet-4-6/high"`` → ``("bedrock", "us.anthropic.claude-sonnet-4-6", "high")``
+    Examples
+    --------
+    >>> _parse_arm("sonnet/high")
+    ('sonnet', 'high')
     """
-    if arm.startswith("bedrock/"):
-        # bedrock/<model-id>/<effort>
-        parts = arm.split("/")
-        if len(parts) < 3:
-            raise ValueError(
-                f"bedrock arm must be 'bedrock/<model-id>/<effort>', got: {arm!r}"
-            )
-        # model-id may contain dots but not slashes; effort is the last segment
-        effort = parts[-1]
-        model_id = "/".join(parts[1:-1])
-        return "bedrock", model_id, effort
-
-    # Legacy: model/effort (e.g. sonnet/high)
     parts = arm.split("/", 1)
     if len(parts) != 2:
         raise ValueError(f"arm must be 'model/effort', got: {arm!r}")
-    return "claude", parts[0], parts[1]
+    return parts[0], parts[1]
 
 
 def _build_claude_cmd(
@@ -92,15 +69,15 @@ def _build_claude_cmd(
     effort: str,
     prompt: str,
     system_prompt: Optional[str] = None,
-) -> tuple[list[str], str]:
-    """Build the claude CLI argument list. Returns (cmd, stdin_text).
-
-    The prompt is passed via stdin (using `-p -`) to avoid OS ARG_MAX limits
-    when programs are large (50K+ chars).
-    """
-    # Use short model names — compatible with both direct API and Bedrock.
-    # The claude CLI resolves these to the appropriate model ID for the backend.
-    full_model = model
+) -> list[str]:
+    """Build the claude CLI argument list."""
+    # Map short model names to full Claude model IDs.
+    model_map = {
+        "opus": "claude-opus-4-6",
+        "sonnet": "claude-sonnet-4-6",
+        "haiku": "claude-haiku-4-5-20251001",
+    }
+    full_model = model_map.get(model, model)
 
     cmd = [
         "claude",
@@ -108,12 +85,12 @@ def _build_claude_cmd(
         "--effort", effort,
         "--strict-mcp-config",
         "--mcp-config", _get_empty_mcp_config(),
-        "-p", "-",
+        "-p", prompt,
         "--output-format", "json",
     ]
     if system_prompt:
         cmd += ["--system-prompt", system_prompt]
-    return cmd, prompt
+    return cmd
 
 
 async def query_claude_async(
@@ -122,25 +99,21 @@ async def query_claude_async(
     system_prompt: Optional[str] = None,
     timeout: int = DEFAULT_TIMEOUT,
     max_retries: int = DEFAULT_RETRIES,
-    bedrock_config: Optional[BedrockConfig] = None,
 ) -> QueryResult:
-    """Call Claude CLI or Bedrock Converse API and return a QueryResult.
+    """Call the Claude CLI subprocess and return a QueryResult.
 
     Parameters
     ----------
     arm:
-        An arm name like ``"sonnet/high"`` (Claude CLI) or
-        ``"bedrock/us.anthropic.claude-sonnet-4-6/high"`` (Bedrock).
+        An arm name like ``"sonnet/high"`` or ``"opus/max"``.
     prompt:
-        The user-facing prompt text.
+        The user-facing prompt text (passed via ``-p``).
     system_prompt:
-        Optional system prompt.
+        Optional system prompt (passed via ``--system-prompt``).
     timeout:
-        Maximum seconds to wait.
+        Maximum seconds to wait for the subprocess.
     max_retries:
         Total attempts before raising ``LLMCallFailed``.
-    bedrock_config:
-        Optional Bedrock connection config (profile, region).
 
     Returns
     -------
@@ -152,26 +125,8 @@ async def query_claude_async(
     LLMCallFailed
         When all retry attempts are exhausted without a successful response.
     """
-    provider, model, effort = _parse_arm(arm)
-
-    # --- Bedrock route ---
-    if provider == "bedrock":
-        try:
-            content = await query_bedrock_async(
-                model_id=model,
-                effort=effort,
-                prompt=prompt,
-                system_prompt=system_prompt,
-                timeout=timeout,
-                max_retries=max_retries,
-                config=bedrock_config,
-            )
-            return QueryResult(content=content, model=model, effort=effort)
-        except BedrockCallFailed as exc:
-            raise LLMCallFailed(str(exc)) from exc
-
-    # --- Claude CLI route ---
-    cmd, stdin_text = _build_claude_cmd(model, effort, prompt, system_prompt)
+    model, effort = _parse_arm(arm)
+    cmd = _build_claude_cmd(model, effort, prompt, system_prompt)
 
     last_exc: Exception = RuntimeError("no attempts made")
     for attempt in range(max_retries):
@@ -186,16 +141,9 @@ async def query_claude_async(
             # output limit and return an API error instead of the response.
             env = dict(os.environ)
             env.setdefault("CLAUDE_CODE_MAX_OUTPUT_TOKENS", "64000")
-            # Prevent AWS SDK from loading ~/.aws/credentials which conflicts with OAuth
-            env["AWS_SHARED_CREDENTIALS_FILE"] = "/dev/null"
-            env["AWS_CONFIG_FILE"] = "/dev/null"
-            env.pop("AWS_PROFILE", None)
-            env.pop("AWS_ACCESS_KEY_ID", None)
-            env.pop("AWS_SECRET_ACCESS_KEY", None)
 
             proc = await asyncio.create_subprocess_exec(
                 *cmd,
-                stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 cwd=os.path.expanduser("~"),
@@ -203,7 +151,7 @@ async def query_claude_async(
             )
             try:
                 stdout, stderr = await asyncio.wait_for(
-                    proc.communicate(input=stdin_text.encode()), timeout=float(timeout)
+                    proc.communicate(), timeout=float(timeout)
                 )
             except asyncio.TimeoutError as exc:
                 proc.kill()

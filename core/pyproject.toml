@@ -28,9 +28,6 @@ embedding = [
     # transformers v5 dropped APIs that SFR's custom modeling code relies on
     "transformers>=4.40,<5",
 ]
-bedrock = [
-    "boto3>=1.28.0",
-]
 
 [project.scripts]
 claude-evolve = "claude_evolve.cli:main"
